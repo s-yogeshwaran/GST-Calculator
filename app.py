@@ -450,7 +450,11 @@ def render_css() -> None:
     st.markdown(
         """
         <style>
-        .block-container {padding-top: 2rem; padding-bottom: 2rem; max-width: 1180px;}
+        .block-container {
+            padding-top: 1.5rem;
+            padding-bottom: 2rem;
+            max-width: 1180px;
+        }
         div[data-testid="stMetric"] {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -462,6 +466,7 @@ def render_css() -> None:
             border-radius: 8px;
             padding: 22px;
             background: #ffffff;
+            overflow-x: auto;
         }
         .invoice-title {
             text-align: center;
@@ -474,6 +479,57 @@ def render_css() -> None:
             margin-bottom: 18px;
         }
         .muted {color: #64748b;}
+        .entry-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 12px 4px;
+            margin-bottom: 12px;
+            background: #ffffff;
+        }
+        .entry-card-title {
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #0f172a;
+        }
+        div[data-testid="stDataFrame"] {
+            min-width: 720px;
+        }
+        @media (max-width: 760px) {
+            .block-container {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+                padding-top: 1rem;
+            }
+            h1 {
+                font-size: 1.55rem !important;
+                line-height: 1.2 !important;
+            }
+            h2, h3 {
+                font-size: 1.15rem !important;
+            }
+            div[data-testid="column"] {
+                width: 100% !important;
+                flex: 1 1 100% !important;
+                margin-bottom: 0.35rem;
+            }
+            div[data-testid="stHorizontalBlock"] {
+                gap: 0.25rem;
+            }
+            .invoice-shell {
+                padding: 12px;
+            }
+            .invoice-title {
+                font-size: 1.1rem;
+                padding: 9px 0;
+            }
+            div[data-testid="stMetric"] {
+                padding: 10px 12px;
+            }
+            .stButton button,
+            .stDownloadButton button {
+                min-height: 2.75rem;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -506,52 +562,47 @@ def render_entry_rows() -> None:
     st.subheader("Invoice Entry")
     st.caption("Enter the GST-inclusive net total for each item. Unit and tax are populated from item master data.")
 
-    header = st.columns([0.55, 3.2, 0.8, 1, 1.7, 0.8])
-    for label, column in zip(["S.No", "Items", "Pcs", "Qty", "Net Total", ""], header):
-        column.markdown(f"**{label}**")
-
     for index, row in enumerate(st.session_state.rows, start=1):
         row_id = row["id"]
-        cols = st.columns([0.55, 3.2, 0.8, 1, 1.7, 0.8])
-        cols[0].write(index)
-        row["item"] = cols[1].selectbox(
-            "Items",
-            ITEM_NAMES,
-            index=ITEM_NAMES.index(str(row["item"])),
-            key=f"item_{row_id}",
-            label_visibility="collapsed",
-        )
-        row["pcs"] = cols[2].number_input(
-            "PCS",
-            min_value=1,
-            step=1,
-            value=int(row["pcs"]),
-            key=f"pcs_{row_id}",
-            label_visibility="collapsed",
-        )
-        row["qty"] = cols[3].number_input(
-            "Qty",
-            min_value=0.0,
-            step=0.01,
-            value=float(row["qty"]),
-            format="%.2f",
-            key=f"qty_{row_id}",
-            label_visibility="collapsed",
-        )
-        row["net_total"] = cols[4].number_input(
-            "Net Total",
-            min_value=0.0,
-            step=1.0,
-            value=float(row["net_total"]),
-            format="%.2f",
-            key=f"net_total_{row_id}",
-            label_visibility="collapsed",
-        )
-        if cols[5].button("Delete", key=f"delete_{row_id}", use_container_width=True):
-            delete_row(int(row_id))
-            st.rerun()
+        with st.container(border=True):
+            st.markdown(f"**Item {index}**")
+            item_col, pcs_col, qty_col, total_col, delete_col = st.columns([3.2, 0.8, 1, 1.7, 0.8])
+            row["item"] = item_col.selectbox(
+                "Items",
+                ITEM_NAMES,
+                index=ITEM_NAMES.index(str(row["item"])),
+                key=f"item_{row_id}",
+            )
+            row["pcs"] = pcs_col.number_input(
+                "Pcs",
+                min_value=1,
+                step=1,
+                value=int(row["pcs"]),
+                key=f"pcs_{row_id}",
+            )
+            row["qty"] = qty_col.number_input(
+                "Qty",
+                min_value=0.0,
+                step=0.01,
+                value=float(row["qty"]),
+                format="%.2f",
+                key=f"qty_{row_id}",
+            )
+            row["net_total"] = total_col.number_input(
+                "Net Total",
+                min_value=0.0,
+                step=1.0,
+                value=float(row["net_total"]),
+                format="%.2f",
+                key=f"net_total_{row_id}",
+            )
+            delete_col.write("")
+            delete_col.write("")
+            if delete_col.button("Delete", key=f"delete_{row_id}", use_container_width=True):
+                delete_row(int(row_id))
+                st.rerun()
 
-    action_cols = st.columns([1.2, 1.6, 1.6, 4])
+    action_cols = st.columns([1.2, 1.6, 1.6])
     if action_cols[0].button("Add Item", use_container_width=True):
         add_row()
         st.rerun()
@@ -614,14 +665,14 @@ def render_invoice(df: pd.DataFrame, summary: dict[str, Decimal], company: dict[
     export_cols[0].download_button(
         "Export PDF",
         data=pdf_bytes,
-        file_name="kumar_glass_invoice.pdf",
+        file_name="glass_invoice.pdf",
         mime="application/pdf",
         use_container_width=True,
     )
     export_cols[1].download_button(
         "Export Excel",
         data=excel_bytes,
-        file_name="kumar_glass_invoice.xlsx",
+        file_name="glass_invoice.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True,
     )
